@@ -4,6 +4,10 @@ import mindspore.dataset as dataset
 import numpy as np
 import json
 from easydict import EasyDict
+import os
+import matplotlib as mt
+import matplotlib.pyplot as plt
+from skimage import transform,data
 
 def get_simplified_words(sentence):
 	sentence = sentence.lower()
@@ -69,6 +73,17 @@ def get_vec_and_pad(sentences, dict, max_length):
 		else:
 			vectors.append(vector)
 	return vectors
+
+def read_image(images_list, path):
+    img_list = []
+
+    for i in images_list:
+        sub_img = mt.image.imread(path + str(i).rjust(12, '0') + ".jpg")
+        
+        sub_img=transform.resize(sub_img, (224, 224, 3))
+        img_list.append(sub_img)
+    
+    return np.array(img_list, dtype=np.int32)
 
 # create MindRecord
 

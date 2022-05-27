@@ -5,6 +5,6 @@ basic_path = "./data/"
 images_test_path = basic_path + 'images/test'
 images_train_path = basic_path + 'images/train'
 images_val_path = basic_path + 'images/val'
-print(opencv_dnn_path)
+print(images_test_path)
 # 查看文件夹里面文件
-os.listdir(opencv_dnn_path)
+os.listdir(images_test_path)
