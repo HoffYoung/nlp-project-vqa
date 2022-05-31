@@ -134,3 +134,5 @@ mindrecord/
 ckpt/
 rank_0/
 .vscode/
+train2014/
+temp/
