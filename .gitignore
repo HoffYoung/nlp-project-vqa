@@ -131,4 +131,6 @@ dmypy.json
 # Repo
 data/
 mindrecord/
+ckpt/
+rank_0/
 .vscode/

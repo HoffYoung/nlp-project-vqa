@@ -90,7 +90,7 @@ def read_image(images_list, path):
 def generate_mindrecord(mindrecord_path, num_splits, images, questions, answers):
 	schema = {"image": {"type": "int32", "shape": [224, 224, 3]},
           "question": {"type": "int32", "shape": [-1]},
-		  "answer": {"type": "int32", "shape": [-1]},
+		  "answer": {"type": "int32"},
 	}
 	writer = FileWriter(mindrecord_path, num_splits, overwrite=True)
 	print(mindrecord_path.split("/")[-1].split(".")[0])
@@ -99,10 +99,9 @@ def generate_mindrecord(mindrecord_path, num_splits, images, questions, answers)
 	for i, q, a in zip(images, questions, answers):
 		i = np.array(i).astype(np.int32)
 		q = np.array(q).astype(np.int32)
-		a = np.array(a).astype(np.int32)
 		data_json = {"image": i.reshape(224, 224, 3),
 					 "question": q.reshape(-1),
-					 "answer": a.reshape(-1)}
+					 "answer": a}
 		data_list.append(data_json)
 	writer.write_raw_data(data_list)
 	writer.commit()
