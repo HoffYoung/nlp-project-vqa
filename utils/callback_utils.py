@@ -3,6 +3,7 @@ import mindspore.ops.operations as P
 from mindspore.train.callback import Callback
 from mindspore.train.serialization import save_checkpoint
 from mindspore.train.callback import TimeMonitor
+from mindspore import context
 
 class TrainCallback(Callback):
     def __init__(self, model, valid_dataset, valid_callbacks):
@@ -11,22 +12,28 @@ class TrainCallback(Callback):
         self.valid_dataset = valid_dataset
         self.valid_callbacks = valid_callbacks
         self.sum = P.ReduceSum()
+        self.print = P.Print()
         
     def step_begin(self, run_context):
-        if self.valid_callbacks.is_early_stop:
+        if self.valid_callbacks[0].is_early_stop:
             # 提前退出
             run_context.request_stop()
 
-    def epoch_end(self, run_context):
+    def step_end(self, run_context):
         cb_params = run_context.original_args()
-        # print(cb_params)
+        # self.print(cb_params)
         epoch_num = cb_params.cur_epoch_num
         step_num = cb_params.cur_step_num
         train_loss = self.sum(cb_params.net_outputs[0]) / cb_params.net_outputs[0].shape[0]
         train_acc = cb_params.net_outputs[1].item(0).asnumpy().item()
         # print(epoch_num)
         # print(step_num)
-        print('epoch:', epoch_num, ', step:', step_num, 'train loss =', train_loss, 'acc =', train_acc, end='')
+        if context.get_context('device_target') != 'CPU':
+            self.print('epoch:', epoch_num, ', step:', step_num, ' train loss =', train_loss, 'acc =', train_acc)
+        else:
+            print('epoch:', epoch_num, ', step:', step_num, ' train loss =', train_loss, 'acc =', train_acc)
+
+    def epoch_end(self, run_context):
         # run on valid set
         self.model.eval(self.valid_dataset, callbacks=self.valid_callbacks, dataset_sink_mode=True)
 
@@ -43,14 +50,19 @@ class ValidCallback(Callback):
         self.early_stop = train_config.early_stop
         self.is_early_stop = False
         self.sum = P.ReduceSum()
+        self.print = P.Print()
     
     def epoch_end(self, run_context):
-        print(run_context)
+        # self.print(run_context)
         cb_params = run_context.original_args()
-        #print(cb_params) 
+        # self.print(cb_params) 
         valid_loss = self.sum(cb_params.net_outputs[0]) / cb_params.net_outputs[0].shape[0]
         valid_acc = cb_params.net_outputs[1].item(0).asnumpy().item()
-        print(' | valid loss =', valid_loss, 'acc =', valid_acc)
+        if context.get_context('device_target') != 'CPU':
+            self.print('  valid loss =', valid_loss, 'acc =', valid_acc)
+        else:
+            print('  valid loss =', valid_loss, 'acc =', valid_acc)
+        
         if valid_acc >= self.valid_acc_max or valid_loss < self.valid_loss_min:
             if valid_acc >= self.valid_acc_max and valid_loss < self.valid_loss_min:
                 self.valid_acc_model = valid_acc
@@ -62,22 +74,29 @@ class ValidCallback(Callback):
         else:
             self.current_step += 1
             if self.current_step == self.early_stop:
-                print('early stop... min loss:', self.valid_loss_min, 'max acc:', self.valid_acc_max, end='')
-                print('; validation model loss:', self.valid_loss_model, 'acc:', self.valid_acc_model)
+                if context.get_context('device_target') != 'CPU':
+                    self.print('early stop... min loss:', self.valid_loss_min, 'max acc:', self.valid_acc_max, end='')
+                    self.print('; validation model loss:', self.valid_loss_model, 'acc:', self.valid_acc_model)
+                else:
+                    print('early stop... min loss:', self.valid_loss_min, 'max acc:', self.valid_acc_max, end='')
+                    print('; validation model loss:', self.valid_loss_model, 'acc:', self.valid_acc_model)
                 self.is_early_stop = True
 
 class TestCallback(Callback):
     def __init__(self):
         super(TestCallback, self).__init__()
         self.sum = P.ReduceSum()
+        self.print = P.Print() if context.get_context('device_target') != 'CPU' else print()
     
     def end(self, run_context):
         cb_params = run_context.original_args()
-        print(cb_params)
+        self.print(cb_params)
         test_loss = self.sum(cb_params.net_outputs[0]) / cb_params.net_outputs[0].shape[0]
         test_acc = cb_params.net_outputs[1].item(0).asnumpy().item()
-
-        print('test loss =', test_loss, 'acc =', test_acc)
+        if context.get_context('device_target') != 'CPU':
+            self.print('test loss =', test_loss, 'acc =', test_acc)
+        else:
+            print('test loss =', test_loss, 'acc =', test_acc)
 
 def get_network_callbacks(model, train_dataset, valid_dataset, train_config):
 	# eval callbacks
