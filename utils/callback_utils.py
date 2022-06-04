@@ -1,8 +1,8 @@
 import numpy as np
 import mindspore.ops.operations as P
 from mindspore.train.callback import Callback
-from mindspore.train.serialization import save_checkpoint
 from mindspore.train.callback import TimeMonitor
+from mindspore import save_checkpoint
 from mindspore import context
 
 class TrainCallback(Callback):

@@ -1,3 +1,5 @@
+from inspect import Parameter
+import numpy as np
 import mindspore.nn as nn
 from mindspore import Tensor
 from mindspore import dtype as mstype
@@ -86,23 +88,29 @@ class LSTM(nn.Cell):
     """
     LSTM结构
     """
-    def __init__(self, input_size = 25, batch_size = 32, hidden_size = 512, num_layers = 2, dropout = 0.1, bidirectional = False):
+    def __init__(self, config, input_size = 25, batch_size = 32, hidden_size = 512, num_layers = 2, dropout = 0.1, bidirectional = False):
         super(LSTM, self).__init__()
         self.embedding = nn.Embedding(config.vocab_size, input_size)
         self.net = nn.LSTM(input_size, hidden_size, num_layers, has_bias = True, batch_first = True, dropout = dropout, bidirectional = bidirectional)
-        self.h0 = Tensor(np.ones([(2 if bidirectional else 1) * num_layers, batch_size, hidden_size]).astype(np.float32))
-        self.c0 = Tensor(np.ones([(2 if bidirectional else 1) * num_layers, batch_size, hidden_size]).astype(np.float32))
-        self.concat = P.Concat()
+        self.h0 = Parameter(Tensor(np.ones([(2 if bidirectional else 1) * num_layers, batch_size, hidden_size]).astype(np.float32)))
+        self.c0 = Parameter(Tensor(np.ones([(2 if bidirectional else 1) * num_layers, batch_size, hidden_size]).astype(np.float32)))
+        self.concat = P.Concat(axis=0)
         self.trans = P.Transpose()
         self.flatten = nn.Flatten()
         self.fc = nn.Dense(2*2*512, 1024)
         
     def construct(self, x):
+        # (batch_size, seq_length) -> (batch_size, seq_length, hidden_size)
         x = self.embedding(x)
+        # hn, cn: (num_directions * num_layers, batch_size, hidden_size)
         output, (hn, cn) = self.net(x, (self.h0, self.c0))
+        # x: (4, batch_size, hidden_size)
         x = self.concat((hn, cn))
+        # x: (batch_size, 4, hidden_size)
         x = self.trans(x, (1, 0, 2))
+        # x: (batch_size, 4 * hidden_size)
         x = self.flatten(x)
+        # x: (batch_size, 1024)
         x = self.fc(x)
         return x
 
@@ -112,13 +120,12 @@ class VQABasic(nn.Cell):
     """
     VQABsic网络结构
     """
-    def __init__(self):
+    def __init__(self, config):
         super(VQABasic, self).__init__()
         self.VGGnet = VGG()
-        self.LSTMnet = LSTM()
+        self.LSTMnet = LSTM(config)
         self.mul = P.Mul()
-        self.fc = nn.Dense(1024, 1000)
-        self.softmax = nn.Softmax()
+        self.fc = nn.Dense(1024, config.vocab_size)
         
     def construct(self, x_image, x_question):
         x_image = self.VGGnet(x_image)
@@ -127,7 +134,7 @@ class VQABasic(nn.Cell):
         output = self.mul(x_image, x_question)
         # Fully connected
         output = self.fc(output)
-        return self.softmax(output)
+        return output
 
 
 if __name__ == "__main__":
