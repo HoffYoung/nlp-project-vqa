@@ -1,7 +1,7 @@
-from inspect import Parameter
 import numpy as np
 import mindspore.nn as nn
 from mindspore import Tensor
+from mindspore import Parameter
 from mindspore import dtype as mstype
 from mindspore.ops import operations as P
 
@@ -14,6 +14,7 @@ class VGG(nn.Cell):
         self.in_channels = 3
         self.input_perm = (0, 3, 1, 2)
         
+        self.cast = P.Cast()
         self.trans = P.Transpose()
         self.conv1 = nn.Conv2d(self.in_channels, 64, 3, pad_mode='same')
         self.conv2 = nn.Conv2d(64, 64, 3, pad_mode='same')
@@ -31,6 +32,7 @@ class VGG(nn.Cell):
         self.flatten = nn.Flatten()
         
     def construct(self, x):
+        x = self.cast(x, mstype.float32)
         # 使用定义好的运算构建前向网络
         x = self.trans(x, self.input_perm)
         # (224, 224, 3) -> (224, 224, 64)
@@ -88,12 +90,12 @@ class LSTM(nn.Cell):
     """
     LSTM结构
     """
-    def __init__(self, config, input_size = 25, batch_size = 32, hidden_size = 512, num_layers = 2, dropout = 0.1, bidirectional = False):
+    def __init__(self, config, hidden_size = 512, num_layers = 2, dropout = 0.1, bidirectional = False):
         super(LSTM, self).__init__()
-        self.embedding = nn.Embedding(config.vocab_size, input_size)
-        self.net = nn.LSTM(input_size, hidden_size, num_layers, has_bias = True, batch_first = True, dropout = dropout, bidirectional = bidirectional)
-        self.h0 = Parameter(Tensor(np.ones([(2 if bidirectional else 1) * num_layers, batch_size, hidden_size]).astype(np.float32)))
-        self.c0 = Parameter(Tensor(np.ones([(2 if bidirectional else 1) * num_layers, batch_size, hidden_size]).astype(np.float32)))
+        self.embedding = nn.Embedding(config.vocab_size, config.max_length)
+        self.net = nn.LSTM(config.max_length, hidden_size, num_layers, has_bias = True, batch_first = True, dropout = dropout, bidirectional = bidirectional)
+        self.h0 = Parameter(Tensor(np.ones([(2 if bidirectional else 1) * num_layers, config.batch_size, hidden_size]).astype(np.float32)), name="weight_h0")
+        self.c0 = Parameter(Tensor(np.ones([(2 if bidirectional else 1) * num_layers, config.batch_size, hidden_size]).astype(np.float32)), name="weight_c0")
         self.concat = P.Concat(axis=0)
         self.trans = P.Transpose()
         self.flatten = nn.Flatten()
@@ -124,16 +126,25 @@ class VQABasic(nn.Cell):
         super(VQABasic, self).__init__()
         self.VGGnet = VGG()
         self.LSTMnet = LSTM(config)
+        self.l2Normalize = P.L2Normalize()
         self.mul = P.Mul()
-        self.fc = nn.Dense(1024, config.vocab_size)
+        self.fc1 = nn.Dense(1024, 1000, activation='tanh')
+        self.fc2 = nn.Dense(1000, config.vocab_size, activation='tanh')
+        self.dropout = nn.Dropout(0.5)
         
     def construct(self, x_image, x_question):
         x_image = self.VGGnet(x_image)
+        # l2 normalization for image
+        x_image = self.l2Normalize(x_image)
         x_question = self.LSTMnet(x_question)
         # Point-wise multiplication
         output = self.mul(x_image, x_question)
         # Fully connected
-        output = self.fc(output)
+        output = self.fc1(output)
+        output = self.dropout(output)
+        output = self.fc2(output)
+        output = self.dropout(output)
+
         return output
 
 

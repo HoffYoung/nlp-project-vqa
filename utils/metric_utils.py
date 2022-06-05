@@ -21,12 +21,14 @@ class Accuracy(nn.Cell):
 	def __init__(self):
 		super(Accuracy, self).__init__()
 		self.equal = P.Equal()
+		self.softmax = P.Softmax(axis=-1)
 		self.argmax = P.Argmax(axis=-1)
 		self.cast = P.Cast()
 		self.sum = P.ReduceSum()
 
 	def construct(self, preds, answers):
 		preds = self.cast(preds, mstype.float32)
+		preds = self.softmax(preds)
 		correct_prediction = self.equal(self.argmax(preds), answers)
 		accuracy_num = self.cast(correct_prediction, mstype.float32)
 		return self.sum(accuracy_num) / accuracy_num.shape[0]
@@ -39,4 +41,4 @@ if __name__ == "__main__":
 	y = Tensor(y)
 
 	acc = Accuracy()
-	acc(x, y)
+	print(acc(x, y))
