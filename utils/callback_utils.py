@@ -5,10 +5,8 @@ from mindspore.train.callback import TimeMonitor
 from mindspore import save_checkpoint
 
 class TrainCallback(Callback):
-    def __init__(self, model, valid_dataset, valid_callbacks):
+    def __init__(self, valid_callbacks):
         super(TrainCallback, self).__init__()
-        self.model = model
-        self.valid_dataset = valid_dataset
         self.valid_callbacks = valid_callbacks
         self.sum = P.ReduceSum()
         
@@ -19,7 +17,7 @@ class TrainCallback(Callback):
 
     def step_end(self, run_context):
         cb_params = run_context.original_args()
-        # self.print(cb_params)
+        #print(cb_params)
         epoch_num = cb_params.cur_epoch_num
         step_num = cb_params.cur_step_num
         train_loss = self.sum(cb_params.net_outputs[0]) / cb_params.net_outputs[0].shape[0]
@@ -27,10 +25,6 @@ class TrainCallback(Callback):
         # print(epoch_num)
         # print(step_num)
         print('epoch:', epoch_num, ', step:', step_num, ' train loss =', train_loss, 'acc =', train_acc)
-
-    def epoch_end(self, run_context):
-        # run on valid set
-        self.model.eval(self.valid_dataset, callbacks=self.valid_callbacks, dataset_sink_mode=True)
 
 
 class ValidCallback(Callback):
@@ -46,10 +40,10 @@ class ValidCallback(Callback):
         self.is_early_stop = False
         self.sum = P.ReduceSum()
     
-    def epoch_end(self, run_context):
+    def end(self, run_context):
         # self.print(run_context)
         cb_params = run_context.original_args()
-        # self.print(cb_params) 
+        #print(cb_params) 
         valid_loss = self.sum(cb_params.net_outputs[0]) / cb_params.net_outputs[0].shape[0]
         valid_acc = cb_params.net_outputs[1].item(0).asnumpy().item()
         print('  valid loss =', valid_loss, 'acc =', valid_acc)
@@ -81,13 +75,13 @@ class TestCallback(Callback):
         test_acc = cb_params.net_outputs[1].item(0).asnumpy().item()
         print('test loss =', test_loss, 'acc =', test_acc)
 
-def get_network_callbacks(model, train_dataset, valid_dataset, train_config):
+def get_network_callbacks(train_dataset, train_config):
 	# eval callbacks
 	valid_callback = ValidCallback(train_config)
 	valid_callbacks = [valid_callback]
 	# train callbacks
 	time_callback = TimeMonitor(data_size=train_dataset.get_dataset_size())
-	train_callback = TrainCallback(model, valid_dataset, valid_callbacks)
+	train_callback = TrainCallback(valid_callbacks)
 	train_callbacks = [time_callback, train_callback]
 	
 	return train_callbacks, valid_callbacks
