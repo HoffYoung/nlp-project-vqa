@@ -3,7 +3,7 @@
 ## Introduction
 
 Visual Question Answering models implemented in `MindSpore`. We re-implemented `baseline` model in paper [VQA: Visual Question Answering](), `stack attention` model in [Stacked Attention Networks for Image Question Answering](), and `topdown attention` model in [Tips and Tricks for Visual Question Answering:
-Learnings from the 2017 Challenge]() as baselines, and made some improvements. It's our final group project for courses `Introduction to Natural Language Processing` at Zhejiang University.
+Learnings from the 2017 Challenge](), and made some improvements. It's our final group project for courses `Introduction to Natural Language Processing` at Zhejiang University.
 
 - ###### What's VQA?
 
@@ -28,6 +28,10 @@ The correct **answer** would be: "3"
 Considering some answers do not contain unique words, such as `fly kite`, we do not make any participle for the answer, but directly answer
 
 Case is coded as a unit, and the answer index is stored in a dictionary.
+
+
+![image](https://user-images.githubusercontent.com/58615742/202229781-3bbc2e80-a3c7-434e-850f-bb65ef1d2d9b.png)
+
 
 ## Results
 
