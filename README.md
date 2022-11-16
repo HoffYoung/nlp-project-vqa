@@ -17,7 +17,7 @@ The **question** is: How many people are there in the picture?
 
 The correct **answer** would be: "3"
 
-- What's MindSpore?
+- ###### What's MindSpore?
 
 [MindSpore](mindspore.cn) is a new AI framework developed in Huawei.
 
@@ -25,13 +25,22 @@ The correct **answer** would be: "3"
 
 - ###### Processing of multi word answers
 
-Considering some answers do not contain unique words, such as `fly kite`, we do not make any participle for the answer, but directly answer
+Considering some answers may contain multi words, such as `fly kite`, we do not make any word segmentation for the answer, but directly make the answer case coded as a unit, and the answer index is stored in a dictionary.
 
-Case is coded as a unit, and the answer index is stored in a dictionary.
+- ###### Handling of options
+
+The json file provides the alternative answers. In the later stage of the experiment, we try to use this information to improve the accuracy.
+
+10 alternative answers for a single `VQA` question is displayed below:
 
 
 ![image](https://user-images.githubusercontent.com/58615742/202229781-3bbc2e80-a3c7-434e-850f-bb65ef1d2d9b.png)
 
+How to deal with alternative answers? Instead of simply ignoring them as previous proposed models in the aforementioned papers did, we adopt `Attention Mechanism` in our project. To be more specific, using input `images` and `questions` as `query`, `options_answer` as `key`:
+
+
+
+Through the `Attention Mechanism`, the model is able to focus on which of the alternative answers are more suitable for the correct answer according to the input questions and images. After multiple rounds of training, we can achieve better results.
 
 ## Results
 
@@ -57,5 +66,4 @@ In the light of this fact, we propose 36$\times$2048 dimensional feature maps co
 
 The performance improvement achieved by introducing `options` method is very intuitive and natural: it is equivalent that the model has changed from completing the blank filling questions to completing the choices questions. At this point, the information of pictures and texts is integrated - that is, the model's understanding of the current problem can be used to select the most likely answer that the model thinks, using `attention mechanism` in the candidate set. 
 
-## Report in Chinese
-
+## [Report in Chinese](https://github.com/HoffYoung/nlp-project-vqa/blob/main/report.pdf)
