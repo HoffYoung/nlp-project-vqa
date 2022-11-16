@@ -37,6 +37,7 @@ The json file provides the alternative answers. In the later stage of the experi
 ![image](https://user-images.githubusercontent.com/58615742/202229781-3bbc2e80-a3c7-434e-850f-bb65ef1d2d9b.png)
 
 How to deal with alternative answers? Instead of simply ignoring them as previous proposed models in the aforementioned papers did, we adopt `Attention Mechanism` in our project. To be more specific, using input `images` and `questions` as `query`, `options_answer` as `key`:
+
 $$
 h = \tanh (W_q \cdot q + W_k \cdot k)
 $$
