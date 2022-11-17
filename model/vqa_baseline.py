@@ -2,89 +2,10 @@ import numpy as np
 import mindspore.nn as nn
 from mindspore import Tensor
 from mindspore import Parameter
+from mindspore import load_checkpoint
 from mindspore import dtype as mstype
 from mindspore.ops import operations as P
-
-class VGG(nn.Cell):
-    """
-    VGG网络结构
-    """
-    def __init__(self, num_class = 1024):
-        super(VGG, self).__init__()
-        self.in_channels = 3
-        self.input_perm = (0, 3, 1, 2)
-        
-        self.cast = P.Cast()
-        self.trans = P.Transpose()
-        self.conv1 = nn.Conv2d(self.in_channels, 64, 3, pad_mode='same')
-        self.conv2 = nn.Conv2d(64, 64, 3, pad_mode='same')
-        self.conv3 = nn.Conv2d(64, 128, 3, pad_mode='same')
-        self.conv4 = nn.Conv2d(128, 128, 3, pad_mode='same')
-        self.conv5 = nn.Conv2d(128, 256, 3, pad_mode='same')
-        self.conv6 = nn.Conv2d(256, 256, 3, pad_mode='same')
-        self.conv7 = nn.Conv2d(256, 512, 3, pad_mode='same')
-        self.conv8 = nn.Conv2d(512, 512, 3, pad_mode='same')
-        self.max_pool2d = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc1 = nn.Dense(7*7*512, 4096)
-        self.fc2 = nn.Dense(4096, 4096)
-        self.fc3 = nn.Dense(4096, num_class)
-        self.relu = nn.ReLU()
-        self.flatten = nn.Flatten()
-        
-    def construct(self, x):
-        x = self.cast(x, mstype.float32)
-        # 使用定义好的运算构建前向网络
-        x = self.trans(x, self.input_perm)
-        # (224, 224, 3) -> (224, 224, 64)
-        x = self.conv1(x)
-        # (224, 224, 64) -> (224, 224, 64)
-        x = self.conv2(x)
-        # (224, 224, 64) -> (112, 112, 64)
-        x = self.max_pool2d(x)
-        # (112, 112, 64) -> (112, 112, 128)
-        x = self.conv3(x)
-        # (112, 112, 128) -> (112, 112, 128)
-        x = self.conv4(x)
-        # (112, 112, 128) -> (56, 56, 128)
-        x = self.max_pool2d(x)
-        # (56, 56, 128) -> (56, 56, 256)
-        x = self.conv5(x)
-        # (56, 56, 256) -> (56, 56, 256)
-        x = self.conv6(x)
-        # (56, 56, 256) -> (28, 28, 256)
-        x = self.conv6(x)
-        # (56, 56, 256) -> (28, 28, 256)
-        x = self.max_pool2d(x)
-        # (28, 28, 256) -> (28, 28, 512)
-        x = self.conv7(x)
-        # (28, 28, 512) -> (28, 28, 512)
-        x = self.conv8(x)
-        # (28, 28, 512) -> (28, 28, 512)
-        x = self.conv8(x)
-        # (28, 28, 512) -> (14, 14, 512)
-        x = self.max_pool2d(x)
-        # (14, 14, 512) -> (14, 14, 512)
-        x = self.conv8(x)
-        # (14, 14, 512) -> (14, 14, 512)
-        x = self.conv8(x)
-        # (14, 14, 512) -> (14, 14, 512)
-        x = self.conv8(x)
-        # (14, 14, 512) -> (7, 7, 512)
-        x = self.max_pool2d(x)
-        # (7, 7, 512) -> (7*7*512)
-        x = self.flatten(x)
-        # fully connected + ReLU
-        # (7*7*512) -> (1, 1, 4096)
-        x = self.fc1(x)
-        x = self.relu(x)
-        # (1, 1, 4096) -> (1, 1, 4096)
-        x = self.fc2(x)
-        x = self.relu(x)
-        # (1, 1, 4096) -> (1, 1, 1024)
-        x = self.fc3(x)
-        x = self.relu(x) 
-
-        return x
+from pretrained.VGG import VGG
 
 class LSTM(nn.Cell):
     """
@@ -92,18 +13,18 @@ class LSTM(nn.Cell):
     """
     def __init__(self, config, hidden_size = 512, num_layers = 2, dropout = 0.1, bidirectional = False):
         super(LSTM, self).__init__()
-        self.embedding = nn.Embedding(config.vocab_size, config.max_length)
-        self.net = nn.LSTM(config.max_length, hidden_size, num_layers, has_bias = True, batch_first = True, dropout = dropout, bidirectional = bidirectional)
-        self.h0 = Parameter(Tensor(np.ones([(2 if bidirectional else 1) * num_layers, config.batch_size, hidden_size]).astype(np.float32)), name="weight_h0")
-        self.c0 = Parameter(Tensor(np.ones([(2 if bidirectional else 1) * num_layers, config.batch_size, hidden_size]).astype(np.float32)), name="weight_c0")
+        self.net = nn.LSTM(1, hidden_size, num_layers, has_bias = True, batch_first = True, dropout = dropout, bidirectional = bidirectional)
+        self.h0 = Tensor(np.zeros([(2 if bidirectional else 1) * num_layers, config.batch_size, hidden_size]).astype(np.float32))
+        self.c0 = Tensor(np.zeros([(2 if bidirectional else 1) * num_layers, config.batch_size, hidden_size]).astype(np.float32))
         self.concat = P.Concat(axis=0)
+        self.expand = P.ExpandDims()
         self.trans = P.Transpose()
         self.flatten = nn.Flatten()
-        self.fc = nn.Dense(2*2*512, 1024)
+        self.fc = nn.Dense(2*2*512, 1024, activation='tanh')
         
     def construct(self, x):
-        # (batch_size, seq_length) -> (batch_size, seq_length, hidden_size)
-        x = self.embedding(x)
+        # x: (batch_size, seq_length) -> (batch_size, seq_length, 1)
+        x = self.expand(x, -1)
         # hn, cn: (num_directions * num_layers, batch_size, hidden_size)
         output, (hn, cn) = self.net(x, (self.h0, self.c0))
         # x: (4, batch_size, hidden_size)
@@ -116,37 +37,95 @@ class LSTM(nn.Cell):
         x = self.fc(x)
         return x
 
-
-
 class VQABasic(nn.Cell):
     """
     VQABsic网络结构
     """
     def __init__(self, config):
         super(VQABasic, self).__init__()
-        self.VGGnet = VGG()
+        self.VGGnet = VGG(config)
         self.LSTMnet = LSTM(config)
-        self.l2Normalize = P.L2Normalize()
         self.mul = P.Mul()
-        self.fc1 = nn.Dense(1024, 1000, activation='tanh')
-        self.fc2 = nn.Dense(1000, config.vocab_size, activation='tanh')
+        self.fc1 = nn.Dense(1024, config.output_size, activation='tanh')
+        self.fc2 = nn.Dense(config.output_size, config.output_size, activation='tanh')
+        self.fc3 = nn.Dense(4096, 1024, activation='tanh')
+        self.l2Normalize = P.L2Normalize()
         self.dropout = nn.Dropout(0.5)
+        self.cast = P.Cast()
         
     def construct(self, x_image, x_question):
         x_image = self.VGGnet(x_image)
         # l2 normalization for image
         x_image = self.l2Normalize(x_image)
+        # (4096,) -> (1024,)
+        x_image = self.fc3(x_image) # tanh
+        
+        x_question = self.cast(x_question, mstype.float32)
         x_question = self.LSTMnet(x_question)
         # Point-wise multiplication
         output = self.mul(x_image, x_question)
         # Fully connected
         output = self.fc1(output)
-        output = self.dropout(output)
         output = self.fc2(output)
         output = self.dropout(output)
 
         return output
 
+class VQABasicOpAttn(nn.Cell):
+    """
+    VQABsic with Options Attention 网络结构
+    """
+    def __init__(self, config):
+        super(VQABasicOpAttn, self).__init__()
+        self.VGGnet = VGG(config)
+        self.LSTMnet = LSTM(config)
+        self.embeddings = nn.Embedding(config.vocab_size, 1024)
+        self.mul = P.Mul()
+        self.fc1 = nn.Dense(1024, config.output_size, activation='tanh')
+        self.fc2 = nn.Dense(config.output_size, config.output_size, activation='tanh')
+        self.fc3 = nn.Dense(4096, 1024, activation='tanh')
+        self.l2Normalize = P.L2Normalize()
+        self.dropout = nn.Dropout(0.5)
+        self.cast = P.Cast()
+        self.fc_query = nn.Dense(1024, 1024, has_bias=False)
+        self.fc_key = nn.Dense(1024, 1024, has_bias=True)
+        self.tanh = nn.Tanh()
+        self.fc_h = nn.Dense(1024, 1, has_bias=True)
+        self.softmax = nn.Softmax(axis=1)
+        self.matmul = P.BatchMatMul(transpose_a=True)
+        self.reshape = P.Reshape()
+        self.expand_dims = P.ExpandDims()
+        
+    def construct(self, x_image, x_question, x_options):
+        x_image = self.VGGnet(x_image)
+        # l2 normalization for image
+        x_image = self.l2Normalize(x_image)
+        # (4096,) -> (1024,)
+        x_image = self.fc3(x_image) # tanh
+        
+        x_question = self.cast(x_question, mstype.float32)
+        x_question = self.LSTMnet(x_question)
+        # Point-wise multiplication
+        output = self.mul(x_image, x_question)
+        
+        # Options (batch_size, 10, 1024)
+        options = self.embeddings(x_options)
+        output = self.expand_dims(output, 1)
+        # (batch_size, 1, 1024) + (batch_size, 10, 1024) -> (batch_size, 10, 1024)
+        h = self.tanh(self.fc_query(output) + self.fc_key(options))
+        # (batch_size, 10, 1)
+        p = self.softmax(self.fc_h(h))
+        # (batch_size, 10, 1).T @ (batch_size, 10, 1024) -> (batch_size, 1, 1024)
+        new_context_vec = self.matmul(p, options)
+        # (batch_size, 1, 1024) -> (batch_size, 1024)
+        new_context_vec = self.reshape(new_context_vec, (-1, 1024))
+ 
+        # Fully connected
+        new_context_vec = self.fc1(new_context_vec)
+        new_context_vec = self.fc2(new_context_vec)
+        new_context_vec = self.dropout(new_context_vec)
+
+        return new_context_vec
 
 if __name__ == "__main__":
 	VQABasicNet = VQABasic()

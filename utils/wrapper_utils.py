@@ -33,7 +33,7 @@ class TrainNetworkWrapper(nn.Cell):
 		super(TrainNetworkWrapper, self).__init__(auto_prefix=False)
 		self.network = network
 		loss_net = WithLossCellWrapper(network, loss_fn)
-		optimizer = nn.Adam(loss_net.trainable_params(), learning_rate=train_config.lr, beta1=train_config.momentum, beta2=0.98)
+		optimizer = nn.Adam(loss_net.trainable_params(), learning_rate=train_config.lr, weight_decay=train_config.weight_decay, beta1=train_config.momentum, beta2=0.98)
 		self._backbone = nn.TrainOneStepCell(loss_net, optimizer)
 		self.acc = Accuracy()
 		self.avg = P.ReduceMean()
