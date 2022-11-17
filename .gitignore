@@ -136,3 +136,10 @@ rank_0/
 .vscode/
 train2014/
 temp/
+pretrained/embedding_table_glove_200d.txt
+pretrained/embedding_table_glove_300d.txt
+pretrained/glove.6B.200d.txt
+pretrained/glove.6B.200d.word2vec.txt
+pretrained/glove.6B.300d.txt
+pretrained/glove.6B.300d.word2vec.txt
+pretrained/vgg19_ascend_v130_imagenet2012_research_cv_top1acc74_top5acc91.97.ckpt
